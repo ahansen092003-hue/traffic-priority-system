@@ -6,3 +6,5 @@ streamlit
 numpy>=1.18.1
 osmnx
 geopandas
+networkx
+matplotlib
