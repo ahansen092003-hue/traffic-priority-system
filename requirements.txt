@@ -1,0 +1,8 @@
+pinotdb>=5.1.0
+pandas>=2.0.0
+requests
+kafka-python
+streamlit
+numpy>=1.18.1
+osmnx
+geopandas
