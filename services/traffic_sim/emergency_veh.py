@@ -13,3 +13,6 @@ class emergency_veh:
     
     def set_next_signal(self, next_sig):
         pass
+    
+    def distance_to_signal(self, signal_position):
+        pass
