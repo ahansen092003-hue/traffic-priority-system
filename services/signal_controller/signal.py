@@ -1,4 +1,4 @@
-
+from typing import Optional
 
 class Signal:
     def __init__(self, signal_id, location, state, time_remaining, car_num, bus_num):
@@ -8,3 +8,7 @@ class Signal:
         self.time_remaining = time_remaining
         self.car_num = car_num
         self.bus_num = bus_num
+        self.north = bool
+        self.south = bool
+        self.east = bool
+        self.west = bool
