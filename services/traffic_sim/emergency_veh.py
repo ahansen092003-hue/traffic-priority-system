@@ -1,6 +1,6 @@
 
 
-class emergency_veh:
+class Emergency_Veh:
     def __init__(self, emV_id, position, speed, time_stopped, next_sig):
         self.emV_id = emV_id
         self.position = position

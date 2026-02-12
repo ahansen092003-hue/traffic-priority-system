@@ -8,3 +8,4 @@ osmnx
 geopandas
 networkx
 matplotlib
+folium
