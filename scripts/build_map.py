@@ -6,7 +6,7 @@ with open('config/signal_nodes.json', 'r') as f:
     config = json.load(f)
     signal_list = [signal['id'] for signal in config['signals']]
 
-def build_map(location):
+def build(location):
     mum_map = ox.graph_from_bbox(bbox=(location[0], location[1], location[2], location[3]), network_type='drive', simplify=True)
     nodes, edges = ox.graph_to_gdfs(mum_map)
     center_lat = (location[1] + location[3]) / 2  
@@ -21,10 +21,10 @@ def build_map(location):
     for idx, row in nodes.iterrows():
         folium.CircleMarker(location=[row['y'], row['x']], radius=3, color='red', popup=str(idx)).add_to(m)
         if idx in signal_list:
-            folium.CircleMarker(location=[row['y'], row['x']], radius=3, color='green', popup=str(idx)).add_to(m2)
+            folium.CircleMarker(location=[row['y'], row['x']], radius=3, color='red', popup=str(idx)).add_to(m2)
         
     m.save('map.html')
     m2.save('map_with_signals.html')
 
 if __name__ == "__main__":
-    build_map((72.8056, 18.9778, 72.8389, 19.0167))
+    build((72.8056, 18.9778, 72.8389, 19.0167))
