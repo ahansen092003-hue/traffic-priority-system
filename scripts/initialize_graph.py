@@ -11,6 +11,7 @@ with open('config/signal_nodes.json', 'r') as f:
     config = json.load(f)
     signal_list = [signal['id'] for signal in config['signals']]
     
+##HELPER
 def split_and_create_edges(path, graph, signal_list, road_edges):
     segment_start = path[0]
     segment_nodes = [path[0]]
@@ -33,7 +34,7 @@ def split_and_create_edges(path, graph, signal_list, road_edges):
                 speed_limit = 11.0  
                 if edge_data and 'maxspeed' in edge_data:
                     try:
-                        speed_limit = int(edge_data['maxspeed']) / 3.6  # Convert km/h to m/s
+                        speed_limit = int(edge_data['maxspeed']) / 3.6
                     except (ValueError, TypeError):
                         pass
                 road_edge = RoadEdge(segment_start, node, total_length, speed_limit)
@@ -45,6 +46,71 @@ def split_and_create_edges(path, graph, signal_list, road_edges):
 def build(location):
     mum_map = ox.graph_from_bbox(bbox=(location[0], location[1], location[2], location[3]), network_type='drive', simplify=True)
     
+    road_edges = {}
+    
+    for signal_a in signal_list:
+        for signal_b in signal_list:
+            if signal_a == signal_b:
+                continue
+            try:
+                path = ox.shortest_path(mum_map, signal_a, signal_b, weight='length')
+                
+                if path:
+                    split_and_create_edges(path, mum_map, signal_list, road_edges)
+            except Exception as e:
+                print(f"Error finding path between {signal_a} and {signal_b}: {e}")
+                continue
+    
+    print(f"Created {len(road_edges)} RoadEdge objects connecting signals")
+    
+    nodes, edges = ox.graph_to_gdfs(mum_map)
+    
+    center_lat = (location[1] + location[3]) / 2  
+    center_lon = (location[0] + location[2]) / 2
+    m = folium.Map(location=[center_lat, center_lon], zoom_start=14)
+    
+    for idx, row in edges.iterrows():
+        folium.PolyLine(
+            locations=[(coord[1], coord[0]) for coord in row['geometry'].coords],
+            color='lightblue',
+            weight=1,
+            opacity=0.3
+        ).add_to(m)
+    
+    for edge_id, road_edge in road_edges.items():
+        u, v = edge_id
+        
+        try:
+            path = ox.shortest_path(mum_map, u, v, weight='length')
+            
+            if path:
+                for i in range(len(path) - 1):
+                    node_u = path[i]
+                    node_v = path[i + 1]
+                    
+                    if mum_map.has_edge(node_u, node_v):
+                        edge_data = mum_map[node_u][node_v][0]
+                        if 'geometry' in edge_data:
+                            coords = [(coord[1], coord[0]) for coord in edge_data['geometry'].coords]
+                        else:
+                            coords = [[nodes.loc[node_u]['y'], nodes.loc[node_u]['x']], 
+                                    [nodes.loc[node_v]['y'], nodes.loc[node_v]['x']]]
+                        
+                        folium.PolyLine(locations=coords, color='green', weight=4).add_to(m)
+        except:
+            pass
+    
+    for node_id in signal_list:
+        if node_id in nodes.index:
+            folium.CircleMarker(
+                location=[nodes.loc[node_id]['y'], nodes.loc[node_id]['x']],
+                radius=8,
+                color='red',
+                fill=True
+            ).add_to(m)
+    
+    m.save('filtered_edges.html')
+    print("Visualization saved to filtered_edges.html")
 
 if __name__ == "__main__":
     build((72.8056, 18.9778, 72.8389, 19.0167))
