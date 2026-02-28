@@ -11,6 +11,10 @@ with open('config/signal_nodes.json', 'r') as f:
     config = json.load(f)
     signal_list = [signal['id'] for signal in config['signals']]
     
+def split_and_create_edges(path, graph, signal_list, road_edges):
+    segment_start = path[0]
+    segment_nodes = [path[0]]
+    
 def build(location):
     mum_map = ox.graph_from_bbox(bbox=(location[0], location[1], location[2], location[3]), network_type='drive', simplify=True)
     
