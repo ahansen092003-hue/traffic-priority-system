@@ -2,11 +2,10 @@ import osmnx as ox
 import folium
 import json
 
-with open('config/signal_nodes.json', 'r') as f:
-    config = json.load(f)
-    signal_list = [signal['id'] for signal in config['signals']]
-
-def build(location):
+def init_build(location):
+    with open('config/signal_nodes.json', 'r') as f:
+        config = json.load(f)
+        signal_list = [signal['id'] for signal in config['signals']]
     mum_map = ox.graph_from_bbox(bbox=(location[0], location[1], location[2], location[3]), network_type='drive', simplify=True)
     nodes, edges = ox.graph_to_gdfs(mum_map)
     center_lat = (location[1] + location[3]) / 2  
@@ -27,4 +26,4 @@ def build(location):
     m2.save('map_with_signals.html')
 
 if __name__ == "__main__":
-    build((72.8056, 18.9778, 72.8389, 19.0167))
+    init_build((72.8056, 18.9778, 72.8389, 19.0167))

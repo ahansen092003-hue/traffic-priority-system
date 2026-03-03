@@ -6,10 +6,6 @@ import osmnx as ox
 import json
 import folium
 from services.road_graph.road_edge import RoadEdge
-
-with open('config/signal_nodes.json', 'r') as f:
-    config = json.load(f)
-    signal_list = [signal['id'] for signal in config['signals']]
     
 ##HELPER
 def split_and_create_edges(path, graph, signal_list, road_edges):
@@ -44,9 +40,14 @@ def split_and_create_edges(path, graph, signal_list, road_edges):
             segment_nodes = [node]
     
 def build(location):
+    with open('config/signal_nodes.json', 'r') as f:
+        config = json.load(f)
+        signal_list = [signal['id'] for signal in config['signals']]
+        
     mum_map = ox.graph_from_bbox(bbox=(location[0], location[1], location[2], location[3]), network_type='drive', simplify=True)
     
     road_edges = {}
+    paths = {}
     
     for signal_a in signal_list:
         for signal_b in signal_list:
@@ -56,6 +57,7 @@ def build(location):
                 path = ox.shortest_path(mum_map, signal_a, signal_b, weight='length')
                 
                 if path:
+                    paths[(signal_a, signal_b)] = path
                     split_and_create_edges(path, mum_map, signal_list, road_edges)
             except Exception as e:
                 print(f"Error finding path between {signal_a} and {signal_b}: {e}")
@@ -80,25 +82,23 @@ def build(location):
     for edge_id, road_edge in road_edges.items():
         u, v = edge_id
         
-        try:
-            path = ox.shortest_path(mum_map, u, v, weight='length')
-            
-            if path:
-                for i in range(len(path) - 1):
-                    node_u = path[i]
-                    node_v = path[i + 1]
+        
+        path = paths.get((u, v))
+        
+        if path:
+            for i in range(len(path) - 1):
+                node_u = path[i]
+                node_v = path[i + 1]
+                
+                if mum_map.has_edge(node_u, node_v):
+                    edge_data = mum_map[node_u][node_v][0]
+                    if 'geometry' in edge_data:
+                        coords = [(coord[1], coord[0]) for coord in edge_data['geometry'].coords]
+                    else:
+                        coords = [[nodes.loc[node_u]['y'], nodes.loc[node_u]['x']], 
+                                [nodes.loc[node_v]['y'], nodes.loc[node_v]['x']]]
                     
-                    if mum_map.has_edge(node_u, node_v):
-                        edge_data = mum_map[node_u][node_v][0]
-                        if 'geometry' in edge_data:
-                            coords = [(coord[1], coord[0]) for coord in edge_data['geometry'].coords]
-                        else:
-                            coords = [[nodes.loc[node_u]['y'], nodes.loc[node_u]['x']], 
-                                    [nodes.loc[node_v]['y'], nodes.loc[node_v]['x']]]
-                        
-                        folium.PolyLine(locations=coords, color='green', weight=4).add_to(m)
-        except:
-            pass
+                    folium.PolyLine(locations=coords, color='green', weight=4).add_to(m)
     
     for node_id in signal_list:
         if node_id in nodes.index:
@@ -111,6 +111,8 @@ def build(location):
     
     m.save('filtered_edges.html')
     print("Visualization saved to filtered_edges.html")
+    
+    return road_edges
 
 if __name__ == "__main__":
     build((72.8056, 18.9778, 72.8389, 19.0167))
