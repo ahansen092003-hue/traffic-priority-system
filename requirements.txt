@@ -3,6 +3,7 @@ pandas>=2.0.0
 requests
 confluent-kafka
 streamlit
+streamlit-folium
 numpy>=1.18.1
 osmnx
 geopandas
