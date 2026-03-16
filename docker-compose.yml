@@ -1,0 +1,61 @@
+services:
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: zookeeper
+    restart: on-failure
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    restart: on-failure
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT_INTERNAL://0.0.0.0:29092,PLAINTEXT_EXTERNAL://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT_INTERNAL://kafka:29092,PLAINTEXT_EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT_INTERNAL:PLAINTEXT,PLAINTEXT_EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+
+  pinot-controller:
+    image: apachepinot/pinot:1.0.0
+    container_name: pinot-controller
+    command: StartController -zkAddress zookeeper:2181
+    depends_on:
+      - zookeeper
+    ports:
+      - "9000:9000"
+    restart: on-failure
+    environment:
+      JAVA_OPTS: "-Xms256m -Xmx512m"
+
+  pinot-broker:
+    image: apachepinot/pinot:1.0.0
+    container_name: pinot-broker
+    command: StartBroker -zkAddress zookeeper:2181
+    depends_on:
+      - pinot-controller
+    ports:
+      - "8099:8099"
+    restart: on-failure
+    environment:
+      JAVA_OPTS: "-Xms256m -Xmx512m"
+
+  pinot-server:
+    image: apachepinot/pinot:1.0.0
+    container_name: pinot-server
+    command: StartServer -zkAddress zookeeper:2181
+    depends_on:
+      - pinot-controller
+    restart: on-failure
+    environment:
+      JAVA_OPTS: "-Xms256m -Xmx512m"
