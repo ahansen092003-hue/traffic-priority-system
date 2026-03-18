@@ -18,9 +18,9 @@ VEHICLE_COLORS = {
 }
 
 SIGNAL_COLORS = {
-    'green':  [0,   210, 80,  230],
-    'yellow': [255, 200, 0,   230],
-    'red':    [220, 30,  30,  230],
+    'green':  [0,   220, 80,  255],
+    'yellow': [255, 200, 0,   255],
+    'red':    [220, 30,  30,  255],
 }
 
 st.set_page_config(
@@ -52,11 +52,25 @@ while True:
 
         for v in vehicles:
             v['color']  = VEHICLE_COLORS.get(v['vehicle_type'], [180, 180, 180, 200])
-            v['radius'] = 15
+            v['radius'] = 12
+            # Pre-build tooltip text for this vehicle
+            v['tooltip_text'] = (
+                f"Vehicle: {v['vehicle_id']}\n"
+                f"Type: {v['vehicle_type']}\n"
+                f"Speed: {round(v['speed'] * 2.237, 1)} mph\n"
+                f"Stopped: {v['time_stopped']}s"
+            )
 
         for s in signals:
-            s['color']  = SIGNAL_COLORS.get(s['state'], [255, 165, 0, 220])
-            s['radius'] = 25
+            s['color']  = SIGNAL_COLORS.get(s['state'], [255, 165, 0, 255])
+            s['radius'] = 8
+            # Pre-build tooltip text for this signal head
+            s['tooltip_text'] = (
+                f"Signal: {s['tl_id']}\n"
+                f"Head #{s['signal_index']}\n"
+                f"State: {s['state'].upper()}\n"
+                f"Lane: {s['from_lane']}"
+            )
 
         signal_layer = pdk.Layer(
             'ScatterplotLayer',
@@ -65,7 +79,10 @@ while True:
             get_fill_color='color',
             get_radius='radius',
             pickable=True,
-            opacity=0.9,
+            opacity=1.0,
+            stroked=True,
+            get_line_color=[0, 0, 0, 100],
+            line_width_min_pixels=1,
         )
 
         vehicle_layer = pdk.Layer(
@@ -75,31 +92,28 @@ while True:
             get_fill_color='color',
             get_radius='radius',
             pickable=True,
-            opacity=0.85,
+            opacity=0.9,
         )
 
         view_state = pdk.ViewState(
             latitude=MAP_CENTER_LAT,
             longitude=MAP_CENTER_LON,
-            zoom=14,
+            zoom=15,
             pitch=0,
             bearing=0,
         )
 
-        # Using carto-dark — no Mapbox token needed, always loads the map tiles
         deck = pdk.Deck(
             layers=[signal_layer, vehicle_layer],
             initial_view_state=view_state,
-            tooltip={
-                "text": (
-                    "{vehicle_id}\n"
-                    "Type: {vehicle_type}\n"
-                    "Speed: {speed} m/s\n"
-                    "Stopped: {time_stopped}s"
-                )
-            },
+            # Single tooltip template — works for both vehicles and signals
+            # because every data point now has a tooltip_text field
+            tooltip={"text": "{tooltip_text}"},
             map_style='https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
         )
+
+        green_count = sum(1 for s in signals if s['state'] == 'green')
+        red_count   = sum(1 for s in signals if s['state'] == 'red')
 
         metric_step.metric("Simulation Step", step)
         metric_vehicles.metric("Vehicles Active", len(vehicles))
@@ -110,10 +124,16 @@ while True:
                 1
             )
         )
-        metric_signals.metric("Traffic Lights", len(signals))
+        metric_signals.metric(
+            "Signal Heads",
+            f"{green_count}🟢 {red_count}🔴"
+        )
 
         map_placeholder.pydeck_chart(deck)
-        status.caption(f"Last updated: step {step}")
+        status.caption(
+            f"Last updated: step {step} — "
+            f"{len(signals)} signal heads across 18 intersections"
+        )
 
     except FileNotFoundError:
         status.info("⏳ Waiting for simulator to start — run `simulator.py` first.")

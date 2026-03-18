@@ -59,3 +59,23 @@ services:
     restart: on-failure
     environment:
       JAVA_OPTS: "-Xms256m -Xmx512m"
+
+  pinot-init:
+    image: curlimages/curl:latest
+    container_name: pinot-init
+    depends_on:
+      - pinot-broker
+    restart: on-failure
+    volumes:
+      - ./pinot:/pinot
+    entrypoint:
+      - sh
+      - -c
+      - |
+        echo 'Waiting for Pinot controller...' &&
+        sleep 30 &&
+        echo 'Uploading schema...' &&
+        curl -X POST http://pinot-controller:9000/schemas -H 'Content-Type: application/json' -d @/pinot/schema.json &&
+        echo 'Uploading table...' &&
+        curl -X POST http://pinot-controller:9000/tables -H 'Content-Type: application/json' -d @/pinot/table.json &&
+        echo 'Pinot setup complete.'

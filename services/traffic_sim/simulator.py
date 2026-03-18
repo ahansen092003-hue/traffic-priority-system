@@ -13,7 +13,6 @@ import traci  # type: ignore
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
 SUMO_DIR     = os.path.join(PROJECT_ROOT, 'sumo')
 SUMO_CFG     = os.path.join(SUMO_DIR, 'mumbai.sumocfg')
-# Headless binary — no display/XQuartz needed at all
 SUMO_BINARY  = '/Library/Frameworks/EclipseSUMO.framework/Versions/1.26.0/EclipseSUMO/bin/sumo'
 STATE_FILE   = os.path.join(SUMO_DIR, 'current_state.json')
 
@@ -30,12 +29,78 @@ def get_vehicle_type(sumo_type_id: str) -> str:
     return 'car'
 
 
-def get_signal_state(raw: str) -> str:
-    if 'G' in raw or 'g' in raw:
+def state_char_to_color(char: str) -> str:
+    # Each character in SUMO's state string maps to one signal head
+    # G/g = green, y/Y = yellow, r/R = red
+    if char in ('G', 'g'):
         return 'green'
-    if 'y' in raw or 'Y' in raw:
+    if char in ('y', 'Y'):
         return 'yellow'
     return 'red'
+
+
+def get_signal_heads(tl_id: str) -> list:
+    """
+    Returns one entry per signal head (lane approach) at this intersection.
+    Each entry has the real GPS position of that signal head and its state.
+
+    SUMO models each traffic light as a list of controlled links.
+    Each link = one lane approach = one signal head.
+    getControlledLinks() returns a list of lists — one per signal index.
+    Each inner list contains (from_lane, to_lane, via_lane) tuples.
+    getRedYellowGreenState() returns a string where each character
+    is the state of the corresponding signal index.
+    """
+    heads = []
+    try:
+        raw_state = traci.trafficlight.getRedYellowGreenState(tl_id)
+        controlled_links = traci.trafficlight.getControlledLinks(tl_id)
+
+        seen_positions = set()
+
+        for i, link_group in enumerate(controlled_links):
+            if i >= len(raw_state):
+                break
+            if not link_group:
+                continue
+
+            # Each link_group is a list of (from_lane, to_lane, via_lane)
+            # We only need the first one — they share the same signal head
+            from_lane = link_group[0][0]
+
+            try:
+                # getLaneShape returns a list of (x,y) points along the lane
+                # The LAST point is the stop line — where the signal head is
+                shape = traci.lane.getShape(from_lane)
+                if not shape:
+                    continue
+
+                x, y = shape[-1]  # stop line position
+                lon, lat = traci.simulation.convertGeo(x, y)
+
+                # Round to 4 decimal places — two signal heads on the same
+                # approach share nearly identical positions, deduplicate them
+                pos_key = (round(lat, 4), round(lon, 4))
+                if pos_key in seen_positions:
+                    continue
+                seen_positions.add(pos_key)
+
+                heads.append({
+                    'tl_id':         tl_id,
+                    'signal_index':  i,
+                    'lat':           round(lat, 6),
+                    'lon':           round(lon, 6),
+                    'state':         state_char_to_color(raw_state[i]),
+                    'from_lane':     from_lane,
+                })
+
+            except traci.exceptions.TraCIException:
+                continue
+
+    except traci.exceptions.TraCIException:
+        pass
+
+    return heads
 
 
 def run():
@@ -79,27 +144,18 @@ def run():
                 producer.publish(message)
                 vehicles.append(message)
 
+            # Collect individual signal heads for all traffic lights
             signals = []
             for tl_id in traci.trafficlight.getIDList():
-                try:
-                    x, y      = traci.junction.getPosition(tl_id)
-                    lon, lat  = traci.simulation.convertGeo(x, y)
-                    raw_state = traci.trafficlight.getRedYellowGreenState(tl_id)
-                    signals.append({
-                        'tl_id': tl_id,
-                        'lat':   round(lat, 6),
-                        'lon':   round(lon, 6),
-                        'state': get_signal_state(raw_state),
-                    })
-                except traci.exceptions.TraCIException:
-                    continue
+                heads = get_signal_heads(tl_id)
+                signals.extend(heads)
 
             state = {'vehicles': vehicles, 'signals': signals, 'step': step}
             with open(STATE_FILE, 'w') as f:
                 json.dump(state, f)
 
             if step % 10 == 0:
-                print(f"Step {step} — {len(vehicles)} vehicles, {len(signals)} signals")
+                print(f"Step {step} — {len(vehicles)} vehicles, {len(signals)} signal heads")
 
             step += 1
             time.sleep(1.0)
