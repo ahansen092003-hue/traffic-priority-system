@@ -1,0 +1,19 @@
+{
+  "schemaName": "emergency_vehicles",
+  "dimensionFieldSpecs": [
+    {"name": "vehicle_id",   "dataType": "STRING"},
+    {"name": "vehicle_type", "dataType": "STRING"}
+  ],
+  "metricFieldSpecs": [
+    {"name": "lat",          "dataType": "DOUBLE"},
+    {"name": "lon",          "dataType": "DOUBLE"},
+    {"name": "speed",        "dataType": "FLOAT"},
+    {"name": "time_stopped", "dataType": "FLOAT"}
+  ],
+  "dateTimeFieldSpecs": [{
+    "name":        "step",
+    "dataType":    "INT",
+    "format":      "1:SECONDS:EPOCH",
+    "granularity": "1:SECONDS"
+  }]
+}

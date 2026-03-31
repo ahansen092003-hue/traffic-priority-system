@@ -81,8 +81,12 @@ services:
       - |
         echo 'Waiting for Pinot controller...' &&
         sleep 30 &&
-        echo 'Uploading schema...' &&
+        echo 'Uploading vehicle_positions schema...' &&
         curl -X POST http://pinot-controller:9000/schemas -H 'Content-Type: application/json' -d @/pinot/schema.json &&
-        echo 'Uploading table...' &&
+        echo 'Uploading vehicle_positions table...' &&
         curl -X POST http://pinot-controller:9000/tables -H 'Content-Type: application/json' -d @/pinot/table.json &&
+        echo 'Uploading emergency_vehicles schema...' &&
+        curl -X POST http://pinot-controller:9000/schemas -H 'Content-Type: application/json' -d @/pinot/emergency_schema.json &&
+        echo 'Uploading emergency_vehicles table...' &&
+        curl -X POST http://pinot-controller:9000/tables -H 'Content-Type: application/json' -d @/pinot/emergency_table.json &&
         echo 'Pinot setup complete.'

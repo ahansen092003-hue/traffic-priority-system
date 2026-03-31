@@ -1,0 +1,24 @@
+{
+  "tableName": "emergency_vehicles",
+  "tableType": "REALTIME",
+  "segmentsConfig": {
+    "timeColumnName": "step",
+    "schemaName": "emergency_vehicles",
+    "replication": "1"
+  },
+  "tableIndexConfig": {
+    "loadMode": "MMAP",
+    "streamConfigs": {
+      "streamType": "kafka",
+      "stream.kafka.consumer.type": "lowlevel",
+      "stream.kafka.topic.name": "emergency-vehicles",
+      "stream.kafka.decoder.class.name": "org.apache.pinot.plugin.stream.kafka.KafkaJSONMessageDecoder",
+      "stream.kafka.consumer.factory.class.name": "org.apache.pinot.plugin.stream.kafka20.KafkaConsumerFactory",
+      "stream.kafka.broker.list": "kafka:29092",
+      "realtime.segment.flush.threshold.rows": "100",
+      "realtime.segment.flush.threshold.time": "1h"
+    }
+  },
+  "tenants": {},
+  "metadata": {}
+}
