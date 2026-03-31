@@ -9,7 +9,8 @@ KAFKA_CONFIG = {
     'bootstrap.servers': 'localhost:9092'
 }
 
-TOPIC = 'vehicle-positions'
+VEHICLE_POSITIONS_TOPIC  = 'vehicle-positions'
+EMERGENCY_VEHICLES_TOPIC = 'emergency-vehicles'
 
 def delivery_callback(err, msg):
     if err:
@@ -19,9 +20,9 @@ class VehicleProducer:
     def __init__(self):
         self.producer = Producer(KAFKA_CONFIG)
     
-    def publish(self, message):
+    def publish(self, message, topic):
         self.producer.produce(
-            TOPIC,
+            topic,
             key=message['vehicle_id'],
             value=json.dumps(message).encode('utf-8'),
             callback=delivery_callback

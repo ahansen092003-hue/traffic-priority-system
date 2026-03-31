@@ -17,7 +17,7 @@ SUMO_BINARY  = '/Library/Frameworks/EclipseSUMO.framework/Versions/1.26.0/Eclips
 STATE_FILE   = os.path.join(SUMO_DIR, 'current_state.json')
 
 sys.path.insert(0, PROJECT_ROOT)
-from services.traffic_sim.producer import VehicleProducer  # noqa: E402
+from services.traffic_sim.producer import VehicleProducer, VEHICLE_POSITIONS_TOPIC, EMERGENCY_VEHICLES_TOPIC
 
 
 def get_vehicle_type(sumo_type_id: str) -> str:
@@ -141,7 +141,11 @@ def run():
                     'time_stopped': round(waiting_time, 2),
                     'step':         step,
                 }
-                producer.publish(message)
+                producer.publish(message, VEHICLE_POSITIONS_TOPIC)
+                
+                if vtype == 'emergency':
+                    producer.publish(message, EMERGENCY_VEHICLES_TOPIC)
+                    
                 vehicles.append(message)
 
             # Collect individual signal heads for all traffic lights
