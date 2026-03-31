@@ -4,6 +4,9 @@ import json
 import math
 import time
 import threading
+import redis
+
+redis_client = redis.Redis(host='localhost', port=6379, decode_responses=True)
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
@@ -33,11 +36,13 @@ def haversine_distance(lat1: float, lon1: float,
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
 
-def load_signal_index(state_file: str) -> dict:
+def load_signal_index(redis_client) -> dict:
     try:
-        with open(state_file) as f:
-            state = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
+        raw = redis_client.get('current_state')
+        if not raw:
+            return {}
+        state = json.loads(raw)
+    except Exception:
         return {}
 
     tl_positions = {}
@@ -68,7 +73,7 @@ def find_nearest_signal(vehicle_lat: float, vehicle_lon: float,
 
     return nearest_id, nearest_dist
 
-def run_emergency_consumer(command_producer, state_file: str):
+def run_emergency_consumer(command_producer):
     config = {
         'bootstrap.servers': 'localhost:9092',
         'group.id':          'emergency-signal-group',
@@ -77,7 +82,6 @@ def run_emergency_consumer(command_producer, state_file: str):
     consumer = Consumer(config)
     consumer.subscribe(['emergency-vehicles'])
 
-    active_emergencies = {}
     signal_index       = {}
     last_index_rebuild = 0.0
 
@@ -89,7 +93,7 @@ def run_emergency_consumer(command_producer, state_file: str):
 
             now = time.time()
             if now - last_index_rebuild > 10.0:
-                signal_index       = load_signal_index(state_file)
+                signal_index       = load_signal_index(redis_client)
                 last_index_rebuild = now
 
             if msg is None:
@@ -100,41 +104,44 @@ def run_emergency_consumer(command_producer, state_file: str):
                 print(f"Emergency consumer error: {msg.error()}")
                 continue
 
-            vehicle      = json.loads(msg.value().decode('utf-8'))
-            vehicle_id   = vehicle['vehicle_id']
-            v_lat        = vehicle['lat']
-            v_lon        = vehicle['lon']
-            step         = vehicle['step']
+            vehicle    = json.loads(msg.value().decode('utf-8'))
+            vehicle_id = vehicle['vehicle_id']
+            step       = vehicle['step']
 
-            if not signal_index:
-                continue
+            # Check if priority is enabled
+            priority_enabled = redis_client.get('priority_enabled') == 'true'
 
-            nearest_tl, distance = find_nearest_signal(v_lat, v_lon, signal_index)
-            if nearest_tl is None:
-                continue
+            # Check if this vehicle has an active route in Redis
+            route_raw = redis_client.get(f'ambulance:{vehicle_id}:route')
 
-            if distance <= APPROACH_DISTANCE_M:
-                if active_emergencies.get(vehicle_id) != nearest_tl:
-                    print(f"[EMERGENCY] {vehicle_id} approaching {nearest_tl} ({distance:.1f}m) — forcing green")
-                    command_producer.publish({
-                        'command':        'emergency_force',
-                        'tl_id':          nearest_tl,
-                        'vehicle_id':     vehicle_id,
-                        'distance_m':     round(distance, 1),
-                        'issued_at_step': step,
-                    })
-                    active_emergencies[vehicle_id] = nearest_tl
+            if not priority_enabled and route_raw:
+                # Priority has been toggled OFF while an ambulance is active.
+                # Publish emergency_release for every uncleared signal on its route
+                # so the simulator's forced signals get restored to normal.
+                route_data = json.loads(route_raw)
+                cleared    = set(route_data.get('cleared_signals', []))
 
-            elif distance > CLEAR_DISTANCE_M:
-                if vehicle_id in active_emergencies:
-                    forced_tl = active_emergencies.pop(vehicle_id)
-                    print(f"[EMERGENCY] {vehicle_id} cleared {forced_tl} ({distance:.1f}m) — releasing")
-                    command_producer.publish({
-                        'command':        'emergency_release',
-                        'tl_id':          forced_tl,
-                        'vehicle_id':     vehicle_id,
-                        'issued_at_step': step,
-                    })
+                for sig in route_data.get('signals', []):
+                    if sig['tl_id'] not in cleared:
+                        print(
+                            f"[PRIORITY OFF] Releasing {sig['tl_id']} "
+                            f"for {vehicle_id}"
+                        )
+                        command_producer.publish({
+                            'command':        'emergency_release',
+                            'tl_id':          sig['tl_id'],
+                            'vehicle_id':     vehicle_id,
+                            'issued_at_step': step,
+                        })
+
+            elif priority_enabled and route_raw:
+                route_data = json.loads(route_raw)
+                remaining  = len(route_data.get('signals', [])) - \
+                             len(route_data.get('cleared_signals', []))
+                print(
+                    f"[EMERGENCY] {vehicle_id} active — "
+                    f"{remaining} signals remaining on route (step {step})"
+                )
 
     except KeyboardInterrupt:
         pass
@@ -143,7 +150,7 @@ def run_emergency_consumer(command_producer, state_file: str):
         print("Emergency consumer closed.")
 
 
-def run_bus_consumer(command_producer, state_file: str):
+def run_bus_consumer(command_producer):
     config = {
         'bootstrap.servers': 'localhost:9092',
         'group.id':          'bus-signal-group',
@@ -164,7 +171,7 @@ def run_bus_consumer(command_producer, state_file: str):
 
             now = time.time()
             if now - last_index_rebuild > 10.0:
-                signal_index       = load_signal_index(state_file)
+                signal_index       = load_signal_index(redis_client)
                 last_index_rebuild = now
 
             if msg is None:
@@ -241,19 +248,15 @@ def run():
 
     command_producer = SignalCommandProducer()
 
-    STATE_FILE = os.path.join(
-        os.path.dirname(__file__), '../../sumo/current_state.json'
-    )
-
     emergency_thread = threading.Thread(
         target=run_emergency_consumer,
-        args=(command_producer, STATE_FILE),
+        args=(command_producer,),
         daemon=True,
     )
 
     bus_thread = threading.Thread(
         target=run_bus_consumer,
-        args=(command_producer, STATE_FILE),
+        args=(command_producer,),
         daemon=True,
     )
 
