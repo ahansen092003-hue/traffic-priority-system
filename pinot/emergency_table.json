@@ -2,7 +2,7 @@
   "tableName": "emergency_vehicles",
   "tableType": "REALTIME",
   "segmentsConfig": {
-    "timeColumnName": "step",
+    "timeColumnName": "ts",
     "schemaName": "emergency_vehicles",
     "replication": "1"
   },

@@ -2,7 +2,8 @@
   "schemaName": "vehicle_positions",
   "dimensionFieldSpecs": [
     {"name": "vehicle_id",   "dataType": "STRING"},
-    {"name": "vehicle_type", "dataType": "STRING"}
+    {"name": "vehicle_type", "dataType": "STRING"},
+    {"name": "step",         "dataType": "INT"}
   ],
   "metricFieldSpecs": [
     {"name": "lat",          "dataType": "DOUBLE"},
@@ -11,8 +12,8 @@
     {"name": "time_stopped", "dataType": "FLOAT"}
   ],
   "dateTimeFieldSpecs": [{
-    "name":        "step",
-    "dataType":    "INT",
+    "name":        "ts",
+    "dataType":    "LONG",
     "format":      "1:SECONDS:EPOCH",
     "granularity": "1:SECONDS"
   }]

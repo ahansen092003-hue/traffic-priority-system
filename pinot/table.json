@@ -2,7 +2,7 @@
   "tableName": "vehicle_positions",
   "tableType": "REALTIME",
   "segmentsConfig": {
-    "timeColumnName": "step",
+    "timeColumnName": "ts",
     "schemaName": "vehicle_positions",
     "replication": "1"
   },
