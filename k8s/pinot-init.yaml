@@ -1,0 +1,146 @@
+# ConfigMap stores the Pinot schema/table JSON files as Kubernetes objects.
+# The Job mounts this ConfigMap as a directory at /pinot, identical to
+# how docker-compose used a volume mount (./pinot:/pinot).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pinot-config
+data:
+  schema.json: |
+    {
+      "schemaName": "vehicle_positions",
+      "dimensionFieldSpecs": [
+        {"name": "vehicle_id",   "dataType": "STRING"},
+        {"name": "vehicle_type", "dataType": "STRING"},
+        {"name": "step",         "dataType": "INT"}
+      ],
+      "metricFieldSpecs": [
+        {"name": "lat",          "dataType": "DOUBLE"},
+        {"name": "lon",          "dataType": "DOUBLE"},
+        {"name": "speed",        "dataType": "FLOAT"},
+        {"name": "time_stopped", "dataType": "FLOAT"}
+      ],
+      "dateTimeFieldSpecs": [{
+        "name":        "ts",
+        "dataType":    "LONG",
+        "format":      "1:SECONDS:EPOCH",
+        "granularity": "1:SECONDS"
+      }]
+    }
+  table.json: |
+    {
+      "tableName": "vehicle_positions",
+      "tableType": "REALTIME",
+      "segmentsConfig": {
+        "timeColumnName": "ts",
+        "schemaName": "vehicle_positions",
+        "replication": "1"
+      },
+      "tableIndexConfig": {
+        "loadMode": "MMAP",
+        "streamConfigs": {
+          "streamType": "kafka",
+          "stream.kafka.consumer.type": "lowlevel",
+          "stream.kafka.topic.name": "vehicle-positions",
+          "stream.kafka.decoder.class.name": "org.apache.pinot.plugin.stream.kafka.KafkaJSONMessageDecoder",
+          "stream.kafka.consumer.factory.class.name": "org.apache.pinot.plugin.stream.kafka20.KafkaConsumerFactory",
+          "stream.kafka.broker.list": "kafka:29092",
+          "realtime.segment.flush.threshold.rows": "1000",
+          "realtime.segment.flush.threshold.time": "1h"
+        }
+      },
+      "tenants": {},
+      "metadata": {}
+    }
+  emergency_schema.json: |
+    {
+      "schemaName": "emergency_vehicles",
+      "dimensionFieldSpecs": [
+        {"name": "vehicle_id",   "dataType": "STRING"},
+        {"name": "vehicle_type", "dataType": "STRING"},
+        {"name": "step",         "dataType": "INT"}
+      ],
+      "metricFieldSpecs": [
+        {"name": "lat",          "dataType": "DOUBLE"},
+        {"name": "lon",          "dataType": "DOUBLE"},
+        {"name": "speed",        "dataType": "FLOAT"},
+        {"name": "time_stopped", "dataType": "FLOAT"}
+      ],
+      "dateTimeFieldSpecs": [{
+        "name":        "ts",
+        "dataType":    "LONG",
+        "format":      "1:SECONDS:EPOCH",
+        "granularity": "1:SECONDS"
+      }]
+    }
+  emergency_table.json: |
+    {
+      "tableName": "emergency_vehicles",
+      "tableType": "REALTIME",
+      "segmentsConfig": {
+        "timeColumnName": "ts",
+        "schemaName": "emergency_vehicles",
+        "replication": "1"
+      },
+      "tableIndexConfig": {
+        "loadMode": "MMAP",
+        "streamConfigs": {
+          "streamType": "kafka",
+          "stream.kafka.consumer.type": "lowlevel",
+          "stream.kafka.topic.name": "emergency-vehicles",
+          "stream.kafka.decoder.class.name": "org.apache.pinot.plugin.stream.kafka.KafkaJSONMessageDecoder",
+          "stream.kafka.consumer.factory.class.name": "org.apache.pinot.plugin.stream.kafka20.KafkaConsumerFactory",
+          "stream.kafka.broker.list": "kafka:29092",
+          "realtime.segment.flush.threshold.rows": "100",
+          "realtime.segment.flush.threshold.time": "1h"
+        }
+      },
+      "tenants": {},
+      "metadata": {}
+    }
+---
+# Job runs once to upload schemas and table configs to Pinot.
+# Unlike a Deployment, it exits when done and does not restart on success.
+# backoffLimit: 10 allows retries if Pinot isn't ready yet.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pinot-init
+spec:
+  backoffLimit: 10
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: pinot-init
+        image: curlimages/curl:latest
+        command:
+        - sh
+        - -c
+        - |
+          echo 'Waiting for Pinot controller...' &&
+          sleep 60 &&
+          echo 'Uploading vehicle_positions schema...' &&
+          curl -X POST http://pinot-controller:9000/schemas \
+            -H 'Content-Type: application/json' \
+            -d @/pinot/schema.json &&
+          echo 'Uploading vehicle_positions table...' &&
+          curl -X POST http://pinot-controller:9000/tables \
+            -H 'Content-Type: application/json' \
+            -d @/pinot/table.json &&
+          echo 'Uploading emergency_vehicles schema...' &&
+          curl -X POST http://pinot-controller:9000/schemas \
+            -H 'Content-Type: application/json' \
+            -d @/pinot/emergency_schema.json &&
+          echo 'Uploading emergency_vehicles table...' &&
+          curl -X POST http://pinot-controller:9000/tables \
+            -H 'Content-Type: application/json' \
+            -d @/pinot/emergency_table.json &&
+          echo 'Pinot setup complete.'
+        volumeMounts:
+        - name: pinot-config
+          mountPath: /pinot
+      volumes:
+      - name: pinot-config
+        configMap:
+          name: pinot-config

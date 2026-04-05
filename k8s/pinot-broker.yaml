@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pinot-broker
+  labels:
+    app: pinot-broker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pinot-broker
+  template:
+    metadata:
+      labels:
+        app: pinot-broker
+    spec:
+      containers:
+      - name: pinot-broker
+        image: apachepinot/pinot:1.0.0
+        args: ["StartBroker", "-zkAddress", "zookeeper:2181"]
+        env:
+        - name: JAVA_OPTS
+          value: "-Xms256m -Xmx512m"
+        ports:
+        - containerPort: 8099
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "768Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pinot-broker
+spec:
+  selector:
+    app: pinot-broker
+  ports:
+  - port: 8099
+    targetPort: 8099

@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pinot-server
+  labels:
+    app: pinot-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pinot-server
+  template:
+    metadata:
+      labels:
+        app: pinot-server
+    spec:
+      containers:
+      - name: pinot-server
+        image: apachepinot/pinot:1.0.0
+        args: ["StartServer", "-zkAddress", "zookeeper:2181"]
+        env:
+        - name: JAVA_OPTS
+          value: "-Xms256m -Xmx512m"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "768Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pinot-server
+spec:
+  selector:
+    app: pinot-server
+  ports:
+  - port: 8098
+    targetPort: 8098

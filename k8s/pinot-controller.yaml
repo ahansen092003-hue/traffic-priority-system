@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pinot-controller
+  labels:
+    app: pinot-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pinot-controller
+  template:
+    metadata:
+      labels:
+        app: pinot-controller
+    spec:
+      containers:
+      - name: pinot-controller
+        image: apachepinot/pinot:1.0.0
+        # args only — preserves the image entrypoint (/opt/pinot/bin/pinot-admin.sh)
+        # and passes these as arguments, identical to docker-compose "command:"
+        args: ["StartController", "-zkAddress", "zookeeper:2181"]
+        env:
+        - name: JAVA_OPTS
+          value: "-Xms256m -Xmx512m"
+        ports:
+        - containerPort: 9000
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "768Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pinot-controller
+spec:
+  selector:
+    app: pinot-controller
+  ports:
+  - port: 9000
+    targetPort: 9000
