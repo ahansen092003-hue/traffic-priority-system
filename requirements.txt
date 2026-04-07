@@ -12,3 +12,5 @@ uvicorn
 redis
 chromadb
 anthropic
+psycopg2-binary>=2.9
+mcp>=1.0.0

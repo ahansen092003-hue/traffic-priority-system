@@ -11,7 +11,7 @@ Real-time traffic signal optimization for 18 intersections in the Worli–Mahala
 **Prerequisites:**
 - Docker Desktop running
 - SUMO 1.26.0 installed at `/Library/Frameworks/EclipseSUMO.framework/`
-- Python 3.10+: `pip install -r requirements.txt`
+- Python 3.10+: `pip install -r requirements.txt` — venv is Python 3.14; `apache-flink` is intentionally excluded from `requirements.txt` because PyFlink only supports ≤3.11 and runs inside Docker instead
 
 **Start order (each in its own terminal):**
 ```bash
@@ -106,6 +106,17 @@ Keying `signal-commands` by `tl_id` ensures all commands for a given intersectio
 
 - **`flows/`** — Prefect workflow orchestration (directory exists, empty)
 - **Claude API + ChromaDB** — LLM-based signal timing reasoning with RAG memory (`anthropic` and `chromadb` are in `requirements.txt` but not yet wired up)
+- **`services/claude_controller/`** — MCP server + Claude agent triggered by Flink events (see `docs/mcp-flink-plan.md`)
+- **`services/flink_processor/`** — PyFlink job that detects ambulance/bus/congestion events and emits to `claude-triggers` Kafka topic (see `docs/mcp-flink-plan.md`)
+- **`services/bus_routes/`** — PostgreSQL-backed bus route, stop, schedule, and live run tracking; enriches signal priority with delay data (see `docs/postgres-bus-routes-plan.md`)
+
+## Implementation Plans
+
+Detailed plans for unimplemented features live in [`docs/`](docs/):
+- [`docs/mcp-flink-plan.md`](docs/mcp-flink-plan.md) — MCP server + Claude agent + Apache Flink event detection
+- [`docs/postgres-bus-routes-plan.md`](docs/postgres-bus-routes-plan.md) — PostgreSQL schema for bus routes, stops, schedules, and live run state
+
+Check these before proposing new architecture for those areas.
 
 ## No Tests or Linting
 

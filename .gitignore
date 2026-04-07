@@ -1,5 +1,6 @@
 cache
 .DS_Store
+sumo/current_state.json
 *.html
 temp.md
 

@@ -36,7 +36,7 @@ dashboard/app.py  ←── Redis (current_state, ambulance:*:route keys)
 Cloud deployment:
     Terraform → provisions GKE cluster (us-central1-a, 2× e2-standard-2 nodes)
     Kubernetes → deploys all services onto the cluster
-    Prefect    → orchestrates full lifecycle (provision → deploy → run → teardown)
+    Prefect    → orchestrates full lifecycle (in progress)
 ```
 
 **Why Kafka?** The signal controller (`consumer.py`) runs as a separate
@@ -239,6 +239,9 @@ traffic-priority-system/
 │   ├── pinot-server.yaml           # Deployment + ClusterIP Service
 │   └── pinot-init.yaml             # ConfigMap (schemas) + Job (uploads to Pinot)
 ├── flows/                          # Prefect orchestration flows (in progress)
+├── docs/
+│   ├── mcp-flink-plan.md           # Plan: MCP server + Claude agent + Flink event detection
+│   └── postgres-bus-routes-plan.md # Plan: PostgreSQL schema for bus routes and live runs
 └── legacy/                         # Pre-SUMO custom simulator (osmnx/NetworkX)
 ```
 
@@ -259,5 +262,7 @@ traffic-priority-system/
 | Terraform | GKE cluster provisioning (infrastructure as code) |
 | Kubernetes (GKE) | Cloud container orchestration |
 | Prefect | Workflow orchestration — provision, deploy, run, teardown (in progress) |
-| Claude API | LLM-based signal timing reasoning (in progress) |
+| Claude API + MCP | LLM-based signal timing reasoning via MCP tool calls (in progress) |
+| Apache Flink | Stream processing — detects ambulance/bus/congestion events to trigger Claude (in progress) |
+| PostgreSQL | Bus route, stop, schedule, and live run state database (in progress) |
 | ChromaDB | RAG memory for agent past decisions (in progress) |
