@@ -31,14 +31,23 @@ streamlit run services/dashboard/app.py
 ## Cloud Deployment (GKE)
 
 ```bash
-# Provision GKE cluster (~12 minutes)
+# 1. Provision GKE cluster + Secret Manager secrets (~12 minutes)
 cd terraform && terraform init && terraform apply
 
-# Configure kubectl
+# 2. Set real secret values in GCP Secret Manager (do this once)
+echo -n "sk-ant-YOUR_KEY" | gcloud secrets versions add anthropic-api-key --data-file=-
+echo -n "your-db-password" | gcloud secrets versions add postgres-password --data-file=-
+
+# 3. Configure kubectl
 gcloud container clusters get-credentials traffic-priority-cluster \
   --zone us-central1-a --project traffic-priority-ahan
 
-# Deploy all services
+# 4. Install External Secrets Operator (syncs GSM → K8s Secrets)
+helm repo add external-secrets https://charts.external-secrets.io
+helm install external-secrets external-secrets/external-secrets \
+  -n external-secrets --create-namespace
+
+# 5. Deploy all services
 kubectl apply -f k8s/
 kubectl get pods -w
 

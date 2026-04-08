@@ -1,5 +1,18 @@
 services:
 
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    restart: on-failure
+    environment:
+      POSTGRES_DB: bus_routes
+      POSTGRES_USER: traffic
+      POSTGRES_PASSWORD: traffic
+    volumes:
+      - ./services/bus_routes/migrations/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql
+
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
     container_name: zookeeper
@@ -66,6 +79,26 @@ services:
     restart: on-failure
     environment:
       JAVA_OPTS: "-Xms256m -Xmx512m"
+
+  jobmanager:
+    image: flink:1.18-scala_2.12-java11
+    container_name: jobmanager
+    ports:
+      - "8081:8081"
+    command: jobmanager
+    restart: on-failure
+    environment:
+      FLINK_PROPERTIES: "jobmanager.rpc.address: jobmanager"
+
+  taskmanager:
+    image: flink:1.18-scala_2.12-java11
+    container_name: taskmanager
+    depends_on:
+      - jobmanager
+    command: taskmanager
+    restart: on-failure
+    environment:
+      FLINK_PROPERTIES: "jobmanager.rpc.address: jobmanager\ntaskmanager.numberOfTaskSlots: 4"
 
   pinot-init:
     image: curlimages/curl:latest

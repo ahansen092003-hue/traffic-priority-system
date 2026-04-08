@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jobmanager
+  labels:
+    app: jobmanager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jobmanager
+  template:
+    metadata:
+      labels:
+        app: jobmanager
+    spec:
+      containers:
+      - name: jobmanager
+        image: flink:1.18-scala_2.12-java11
+        command: ["/docker-entrypoint.sh"]
+        args: ["jobmanager"]
+        env:
+        - name: FLINK_PROPERTIES
+          value: "jobmanager.rpc.address: jobmanager"
+        ports:
+        - containerPort: 8081  # Web UI
+        - containerPort: 6123  # RPC
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jobmanager
+spec:
+  selector:
+    app: jobmanager
+  ports:
+  - name: ui
+    port: 8081
+    targetPort: 8081
+  - name: rpc
+    port: 6123
+    targetPort: 6123

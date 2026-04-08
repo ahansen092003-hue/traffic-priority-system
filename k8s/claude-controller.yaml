@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: claude-controller
+  labels:
+    app: claude-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: claude-controller
+  template:
+    metadata:
+      labels:
+        app: claude-controller
+    spec:
+      serviceAccountName: secret-accessor
+      containers:
+      - name: claude-controller
+        # Build from repo root: docker build -t traffic-priority/claude-controller .
+        image: traffic-priority/claude-controller:latest
+        command: ["python", "-m", "services.claude_controller.agent"]
+        env:
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: claude-secret
+              key: ANTHROPIC_API_KEY
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:29092"
+        - name: REDIS_HOST
+          value: "redis"
+        - name: PINOT_BROKER_URL
+          value: "http://pinot-broker:8099"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"

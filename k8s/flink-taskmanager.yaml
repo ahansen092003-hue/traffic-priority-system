@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taskmanager
+  labels:
+    app: taskmanager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: taskmanager
+  template:
+    metadata:
+      labels:
+        app: taskmanager
+    spec:
+      containers:
+      - name: taskmanager
+        image: flink:1.18-scala_2.12-java11
+        command: ["/docker-entrypoint.sh"]
+        args: ["taskmanager"]
+        env:
+        - name: FLINK_PROPERTIES
+          value: "jobmanager.rpc.address: jobmanager\ntaskmanager.numberOfTaskSlots: 4"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
