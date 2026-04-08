@@ -28,6 +28,12 @@ resource "google_container_node_pool" "primary_nodes" {
   node_config {
     machine_type = var.machine_type
 
+    # 30GB is the GKE minimum and sufficient for running containers.
+    # Default is 100GB — at 3 nodes that's 300GB SSD which exceeds
+    # the free tier quota. 3 × 30GB = 90GB, well within limits.
+    disk_size_gb = 30
+    disk_type    = "pd-standard"
+
     # cloud-platform scope grants access to all Google Cloud APIs.
     # Required for the nodes to pull images from Artifact Registry.
     oauth_scopes = [

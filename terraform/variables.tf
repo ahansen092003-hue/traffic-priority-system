@@ -25,7 +25,7 @@ variable "cluster_name" {
 variable "node_count" {
   description = "Number of nodes in the cluster"
   type        = number
-  default     = 2
+  default     = 3
 }
 
 variable "machine_type" {
