@@ -16,9 +16,9 @@ metadata:
 data:
   001_initial.sql: |
     CREATE TABLE routes (
-        route_id    SERIAL PRIMARY KEY,
-        name        TEXT NOT NULL,
-        description TEXT
+    route_id    SERIAL PRIMARY KEY,
+    name        TEXT NOT NULL,
+    description TEXT
     );
 
     CREATE TABLE stops (
@@ -39,11 +39,14 @@ data:
     CREATE TABLE bus_runs (
         run_id         SERIAL PRIMARY KEY,
         route_id       INT REFERENCES routes(route_id),
-        vehicle_id     TEXT NOT NULL,
+        vehicle_id     TEXT NOT NULL UNIQUE,   -- UNIQUE added: required for upsert ON CONFLICT
         started_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
         current_stop   INT REFERENCES stops(stop_id),
         delay_seconds  INT NOT NULL DEFAULT 0
     );
+
+    CREATE INDEX idx_stops_intersection ON stops(intersection_id);
+    CREATE INDEX idx_bus_runs_vehicle   ON bus_runs(vehicle_id);
 ---
 apiVersion: apps/v1
 kind: Deployment

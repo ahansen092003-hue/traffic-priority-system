@@ -38,6 +38,9 @@ CREATE TABLE bus_runs (
     current_stop   INT REFERENCES stops(stop_id),
     delay_seconds  INT NOT NULL DEFAULT 0
 );
+
+CREATE INDEX idx_stops_intersection ON stops(intersection_id);
+CREATE INDEX idx_bus_runs_vehicle   ON bus_runs(vehicle_id);
 ```
 
 **Key join**: `stops.intersection_id` ↔ SUMO `tl_id` values (the signal index keys in Redis, format `"152326244#0"`). This is how a bus near a signal maps to a route and schedule.
